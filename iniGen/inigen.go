@@ -1,4 +1,4 @@
-package inigen
+package iniGen
 
 import (
 	"fmt"
