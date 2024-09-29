@@ -1,4 +1,5 @@
-module iniGen
+module module github.com/AzureAriax/iniGen
+
 
 go 1.23.1
 
