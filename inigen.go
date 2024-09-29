@@ -18,9 +18,8 @@ type StructInfo struct {
 	SectionName string
 }
 
-func gen() {
+func Gen(iniFilePath string) {
 	fmt.Println("代码生成开始!")
-	iniFilePath := "./config/config.ini"
 	structs, err := parseIniFile(iniFilePath)
 	if err != nil {
 		log.Fatalf("解析 ini 文件失败: %v", err)
