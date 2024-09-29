@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,19 @@ type StructInfo struct {
 	Fields      map[string]string
 	FuncName    string
 	SectionName string
+}
+
+func gen() {
+	fmt.Println("代码生成开始!")
+	iniFilePath := "./config/config.ini"
+	structs, err := parseIniFile(iniFilePath)
+	if err != nil {
+		log.Fatalf("解析 ini 文件失败: %v", err)
+	}
+	if err := generateCode(structs); err != nil {
+		log.Fatalf("生成代码失败: %v", err)
+	}
+	log.Println("配置加载函数生成成功！")
 }
 
 func iniTypeToGo(value string) string {
