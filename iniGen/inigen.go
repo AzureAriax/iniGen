@@ -16,17 +16,21 @@ type StructInfo struct {
 	Fields      map[string]string
 	FuncName    string
 	SectionName string
+	FilePath    string
 }
 
-func Gen(iniFilePath string) {
+func Gen(iniFilePath string, outputPaths map[string]string) {
 	fmt.Println("代码生成开始!")
-	structs, err := parseIniFile(iniFilePath)
+	structs, err := parseIniFile(iniFilePath, outputPaths)
 	if err != nil {
 		log.Fatalf("解析 ini 文件失败: %v", err)
 	}
-	if err := generateCode(structs); err != nil {
-		log.Fatalf("生成代码失败: %v", err)
+	for _, structInfo := range structs {
+		if err := generateCode(structInfo); err != nil {
+			log.Fatalf("生成代码失败: %v", err)
+		}
 	}
+
 	log.Println("配置加载函数生成成功！")
 }
 
@@ -40,16 +44,22 @@ func iniTypeToGo(value string) string {
 	return "string"
 }
 
-func parseIniFile(filepath string) ([]StructInfo, error) {
+func parseIniFile(filepath string, outputPaths map[string]string) ([]StructInfo, error) {
 	cfg, err := ini.Load(filepath)
 	if err != nil {
 		return nil, err
 	}
+
 	var structs []StructInfo
 	for _, section := range cfg.Sections() {
-		//跳过默认 section
+		// 跳过默认 section
 		if section.Name() == "DEFAULT" {
 			continue
+		}
+
+		outputPath, ok := outputPaths[section.Name()]
+		if !ok {
+			return nil, fmt.Errorf("未找到服务节 %s 对应的输出路径", section.Name())
 		}
 
 		structInfo := StructInfo{
@@ -57,6 +67,7 @@ func parseIniFile(filepath string) ([]StructInfo, error) {
 			FuncName:    fmt.Sprint("Load", strings.Title(section.Name())),
 			SectionName: section.Name(),
 			Fields:      make(map[string]string),
+			FilePath:    outputPath,
 		}
 
 		for _, key := range section.Keys() {
@@ -64,20 +75,20 @@ func parseIniFile(filepath string) ([]StructInfo, error) {
 		}
 		structs = append(structs, structInfo)
 	}
+
 	return structs, nil
 }
-func generateCode(structs []StructInfo) error {
+
+func generateCode(structInfo StructInfo) error {
 	// 模板
 	const templateText = `
-package config
+package {{.StructName}}
 
 import (
     "gopkg.in/ini.v1"
     "log"
 )
 
-{{range .}}
-// {{.FuncName}} 加载 {{.StructName}} 的配置
 type {{.StructName}} struct {
     {{- range $key, $type := .Fields }}
     {{ $key | title }} {{ $type }}
@@ -93,7 +104,17 @@ func {{.FuncName}}(file *ini.File) (*{{.StructName}}, error) {
     }
     return cfg, nil
 }
-{{end}}
+
+func init() {
+    file, err := ini.Load("config.ini")
+    if err != nil {
+        log.Fatalf("无法加载配置文件: %v", err)
+    }
+    _, err = {{.FuncName}}(file)
+    if err != nil {
+        log.Fatalf("初始化 {{.StructName}} 配置失败: %v", err)
+    }
+}
 `
 	tmpl, err := template.New("config").Funcs(template.FuncMap{
 		"title": strings.Title,
@@ -101,12 +122,12 @@ func {{.FuncName}}(file *ini.File) (*{{.StructName}}, error) {
 	if err != nil {
 		return err
 	}
-
-	outFile, err := os.Create("config/config.go")
+	// 直接使用 structInfo.FilePath 作为输出路径
+	outFile, err := os.Create(structInfo.FilePath)
 	if err != nil {
 		return err
 	}
 	defer outFile.Close()
 
-	return tmpl.Execute(outFile, structs)
+	return tmpl.Execute(outFile, structInfo)
 }
