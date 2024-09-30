@@ -1,5 +1,9 @@
 # iniGen
 - go语言ini文件读取生成工具
+- 在go项目中使用：
+```bash
+go get github.com/AzureAriax/iniGen@v1.0.1
+```
 - 以下是使用方法:
 ``` go
 package main
